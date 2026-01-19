@@ -9,15 +9,8 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 OUTPUT_FILE = OUT_DIR / "wso2_api_logs.csv"
 
-# Skip label files
-SKIP_FILES = {
-    "anomaly_labels.txt",
-    "abnormal_label.txt",
-    "normal_label.txt",
-    "anomaly_label.txt"
-}
+SKIP_FILES = {"anomaly_labels.txt", "abnormal_label.txt", "normal_label.txt", "anomaly_label.txt"}
 
-# Fake APIs (WSO2 API Manager style)
 APIS = [
     ("PaymentAPI", "1.0.0"),
     ("UserAPI", "2.1.0"),
@@ -29,16 +22,11 @@ APIS = [
 METHODS = ["GET", "POST", "PUT", "DELETE"]
 
 ENDPOINTS = [
-    "/payment/charge",
-    "/payment/refund",
-    "/user/login",
-    "/user/profile",
-    "/order/create",
-    "/order/status",
-    "/inventory/check",
-    "/support/ticket",
-    "/admin/health",
-    "/admin/metrics"
+    "/payment/charge", "/payment/refund",
+    "/user/login", "/user/profile",
+    "/order/create", "/order/status",
+    "/inventory/check", "/support/ticket",
+    "/admin/health", "/admin/metrics"
 ]
 
 USER_AGENTS = [
@@ -50,14 +38,13 @@ USER_AGENTS = [
     "Java/17"
 ]
 
-def generate_ip():
-    return f"{random.randint(10, 200)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
+ATTACKER_IPS = ["91.210.10.4", "91.210.10.5", "185.33.22.1"]
+NORMAL_IPS = [f"{random.randint(10, 200)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}" for _ in range(500)]
 
 def random_timestamp(start_time):
     return start_time + timedelta(seconds=random.randint(0, 60 * 60 * 24))
 
-def read_log_lines(log_file: Path, max_lines=300):
-    """Read first N lines from a log file safely."""
+def read_log_lines(log_file: Path, max_lines=200):
     lines = []
     try:
         with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
@@ -71,12 +58,73 @@ def read_log_lines(log_file: Path, max_lines=300):
         pass
     return lines
 
-def is_anomaly(line: str):
-    """Simple keyword-based anomaly labeling from raw log text."""
-    keys = ["error", "fail", "warn", "exception", "timeout", "denied", "invalid"]
-    return 1 if any(k in line.lower() for k in keys) else 0
+def generate_normal_record(line, ts, file_name):
+    api_name, api_version = random.choice(APIS)
+    endpoint = random.choice(ENDPOINTS)
+    method = random.choice(METHODS)
 
-def build_dataset():
+    latency = max(10, int(random.gauss(220, 70)))
+    payload = max(60, int(random.gauss(900, 250)))
+
+    status = random.choice([200, 201, 202, 204])
+
+    return {
+        "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S"),
+        "api_name": api_name,
+        "api_version": api_version,
+        "http_method": method,
+        "resource": endpoint,
+        "status_code": status,
+        "latency_ms": latency,
+        "payload_size": payload,
+        "client_ip": random.choice(NORMAL_IPS),
+        "user_agent": random.choice(USER_AGENTS),
+        "raw_source": file_name,
+        "anomaly_label": 0,
+        "raw_line": line[:250],
+    }
+
+def generate_attack_records(base_ts, file_name, attack_type="burst"):
+    """Generate a small attack session from SAME attacker IP in same time window."""
+    attacker_ip = random.choice(ATTACKER_IPS)
+    api_name, api_version = random.choice(APIS)
+
+    records = []
+    session_size = random.randint(30, 80)
+
+    for i in range(session_size):
+        ts = base_ts + timedelta(seconds=random.randint(0, 9))  # same 10-sec window
+        method = random.choice(["GET", "POST"])
+
+        if attack_type == "scan":
+            endpoint = random.choice(ENDPOINTS)  # many unique endpoints
+        else:
+            endpoint = random.choice(["/user/login", "/admin/metrics", "/admin/health"])
+
+        # bad status for attack
+        status = random.choice([401, 403, 429, 500])
+
+        latency = max(50, int(random.gauss(900, 250)))
+        payload = max(200, int(random.gauss(1800, 500)))
+
+        records.append({
+            "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S"),
+            "api_name": api_name,
+            "api_version": api_version,
+            "http_method": method,
+            "resource": endpoint,
+            "status_code": status,
+            "latency_ms": latency,
+            "payload_size": payload,
+            "client_ip": attacker_ip,
+            "user_agent": random.choice(["curl/8.0.1", "python-requests/2.31.0"]),
+            "raw_source": file_name,
+            "anomaly_label": 1,
+            "raw_line": f"[ATTACK:{attack_type}] simulated event",
+        })
+    return records
+
+def main():
     start_time = datetime.now() - timedelta(days=10)
 
     # collect log files
@@ -90,69 +138,34 @@ def build_dataset():
                 raw_files.append(p)
 
     if not raw_files:
-        print("❌ No log files found inside data/ folder.")
-        return None
+        print("❌ No log files found inside data/")
+        return
 
-    print(f"✅ Found {len(raw_files)} log files.")
+    print(f"✅ Found {len(raw_files)} raw files. Building WSO2 dataset...")
+
     all_logs = []
 
-    for file in raw_files:
-        lines = read_log_lines(file, max_lines=250)
+    for file in raw_files[:300]:  # limit processing for speed
+        lines = read_log_lines(file, max_lines=120)
         if not lines:
             continue
 
         for line in lines:
-            api_name, api_version = random.choice(APIS)
-            endpoint = random.choice(ENDPOINTS)
-            method = random.choice(METHODS)
-
-            # base values
-            latency = max(5, int(random.gauss(250, 80)))
-            payload = max(60, int(random.gauss(900, 250)))
-
-            label = is_anomaly(line)
-
-            # anomaly behavior
-            if label == 1:
-                latency *= random.randint(3, 12)
-                payload *= random.randint(2, 8)
-                status = random.choice([401, 403, 404, 429, 500, 503])
-            else:
-                status = random.choice([200, 201, 202, 204])
-
             ts = random_timestamp(start_time)
 
-            all_logs.append({
-                "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S"),
-                "api_name": api_name,
-                "api_version": api_version,
-                "http_method": method,
-                "resource": endpoint,
-                "status_code": status,
-                "latency_ms": latency,
-                "payload_size": payload,
-                "client_ip": generate_ip(),
-                "user_agent": random.choice(USER_AGENTS),
-                "raw_source": file.name,
-                "anomaly_label": label,
-                "raw_line": line[:250]
-            })
+            # 80% normal, 20% attack sessions
+            if random.random() < 0.20:
+                attack_type = random.choice(["burst", "scan", "auth_abuse"])
+                all_logs.extend(generate_attack_records(ts, file.name, attack_type))
+            else:
+                all_logs.append(generate_normal_record(line, ts, file.name))
 
     df = pd.DataFrame(all_logs)
-    return df
-
-def main():
-    df = build_dataset()
-    if df is None:
-        return
-
     df.to_csv(OUTPUT_FILE, index=False)
-    print("\n✅ WSO2 API Gateway style dataset created!")
-    print(f"📌 Saved: {OUTPUT_FILE}")
-    print("\n✅ Sample rows:")
-    print(df.head(3))
 
-    print("\n✅ Label distribution:")
+    print("\n✅ Created wso2_api_logs.csv with attack sessions!")
+    print("📌 Saved:", OUTPUT_FILE)
+    print("\n✅ anomaly_label distribution:")
     print(df["anomaly_label"].value_counts())
 
 if __name__ == "__main__":
