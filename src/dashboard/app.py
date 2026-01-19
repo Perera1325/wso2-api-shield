@@ -11,7 +11,8 @@ st.set_page_config(
 )
 
 ALERTS_FILE = Path("reports/live_alerts.csv")
-API_URL = "http://127.0.0.1:8000"
+API_URL = st.sidebar.text_input("API URL", "http://api:8000")
+
 
 st.title("🛡️ WSO2 API Shield — SOC Dashboard")
 st.caption("Real-time AI/ML powered API Attack Detection | WSO2 Gateway Style Logs")
