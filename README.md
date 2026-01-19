@@ -1,9 +1,12 @@
 # 🛡️ WSO2 API Shield — AI/ML Powered API Attack Detection (SOC Dashboard)
 
+
 <p align="center">
   <img src="assets/banner/banner.png" alt="WSO2 API Shield Banner" width="100%">
 </p>
 
+
+(docs: add dashboard and detect screenshots)
 WSO2 API Shield is an end-to-end cybersecurity project that detects abnormal & malicious API traffic using **rule-based detection + Machine Learning** and provides **real-time SOC-style alerts**.
 
 It simulates real API gateway logs (WSO2-style), detects attack patterns such as:
@@ -87,15 +90,14 @@ v v
 ---
 
 ## 📸 Screenshots
-> Add your screenshots here:
 
 ### SOC Dashboard
-![SOC Dashboard](assets/screenshots/dashboard.png)
+![SOC Dashboard](assets/screenshots/soc_dashboard.jpg)
 
 ### Detect API Response
-![Detect API Response](assets/screenshots/detect_response.png)
+![Detect API Response](assets/screenshots/detect_api_response.jpg)
 
----
+
 
 ## ⚙️ Tech Stack
 - Python 3.x
