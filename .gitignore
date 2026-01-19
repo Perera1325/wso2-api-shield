@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Environments
+venv/
+.env
+
+# Data
+data/
+*.csv
+*.parquet
+*.json
+
+# Models
+models/
+
+# OS
+.DS_Store
+Thumbs.db
