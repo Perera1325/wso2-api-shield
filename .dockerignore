@@ -10,5 +10,4 @@ models/
 
 *.log
 *.csv
-
 .DS_Store
