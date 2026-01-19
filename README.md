@@ -2,6 +2,15 @@
 
 WSO2 API Shield is an end-to-end cybersecurity project that detects abnormal & malicious API traffic using **rule-based detection + Machine Learning** and provides **real-time SOC-style alerts**.
 
+
+<p align="center">
+  <img src="assets/banner/banner.png" alt="WSO2 API Shield Banner" width="100%">
+</p>
+
+
+
+
+
 It simulates real API gateway logs (WSO2-style), detects attack patterns such as:
 - Burst traffic (DDoS-style)
 - Endpoint scanning / enumeration
